@@ -2,7 +2,7 @@ import os
 import json
 from datetime import datetime
 
-CDN_RAW_PREFIX = "https://raw.githubusercontent.com/codeblech/jpgram/main/"
+CDN_RAW_PREFIX = "https://raw.githubusercontent.com/codeblech/jpgram-cdn/main/"
 ROOT = "images"
 
 
