@@ -10,7 +10,7 @@ then
   exit 1
 fi
 
-source secrets.env
+source secrets.env 2> /dev/null 1>&2
 
 if [ -z "${JPGRAM_IG_ID}" ] || [ -z "${JPGRAM_IG_PSWD}" ];
 then
@@ -26,9 +26,18 @@ python3 -m instaloader +../clubs.txt --fast-update --no-videos --no-metadata-jso
 if [ $? -ne 0 ]
 then
   printf "${RED}ERROR${NC}: Cache Updation was unsuccessful. Any changes were not commited and left as it is. Check instaloader.log for furthur details.\n" >&2 
-  exit 1
+  read -p "Do you still want to commit the changes? " -n 1 -r
+  echo    # (optional) move to a new line
+  if [[ ! $REPLY =~ ^[Yy]$ ]]
+  then
+    exit 1
+  fi
 fi
 
+printf "Commiting changes...\n"
 cd ..
 git add .
 git commit -m "chore: update image cache ($( date +%Y-%m-%d ))"
+
+
+printf "Done."
