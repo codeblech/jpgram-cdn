@@ -23,7 +23,7 @@ if [ $LOGIN -eq 1 ];
 then
  if [ -z "${JPGRAM_IG_ID}" ] || [ -z "${JPGRAM_IG_PSWD}" ];
   then
-    printf "${RED}ERROR${NC}: JPGRAM_IG_ID or JPGRAM_IG_PSWD env are not provided.\n" >&2 
+    printf "${RED}ERROR${NC}: JPGRAM_IG_ID or JPGRAM_IG_PSWD env are not provided.\n" >&2
     exit 1
   fi
 fi
@@ -34,11 +34,10 @@ printf "Caching images... (this will take a few minutes)\n(To check instaloader 
 
 if [ $LOGIN -eq 1 ];
 then
-  python3 -m instaloader +../clubs.txt --fast-update --no-videos --no-metadata-json --login $JPGRAM_IG_ID --password $JPGRAM_IG_PSWD 2> instaloader.log >&2
+  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json --login $JPGRAM_IG_ID --password $JPGRAM_IG_PSWD 2> instaloader.log >&2
 else
-  python3 -m instaloader +../clubs.txt --fast-update --no-videos --no-metadata-json 2> instaloader.log >&2
+  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json 2> instaloader.log >&2
 fi
-
 
 # Generating indices
 cd ..
