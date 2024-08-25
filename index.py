@@ -2,7 +2,9 @@ import os
 import json
 from datetime import datetime
 
+CDN_RAW_PREFIX = "https://raw.githubusercontent.com/codeblech/jpgram/main/"
 ROOT = "images"
+
 
 index = {}
 
@@ -41,7 +43,7 @@ for club in os.listdir(ROOT):
 
             index[club].append(
                     {
-                        "image": image_path,
+                        "image": CDN_RAW_PREFIX+image_path,
                         "caption": caption,
                         "datetime": formatted_datetime,
                     }
