@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: convert
-        run: find . -type f -name "*.jpg" -exec sh -c 'cwebp -q 80 "$1" -o "${1%.jpg}.webp" && rm "$1"' _ {} \;
+        run: find ./images/osdcjiit/ -type f -name "*.jpg" -exec sh -c 'cwebp -q 80 "$1" -o "${1%.jpg}.webp" && rm "$1"' _ {} \;
 
       - name: update index.json
         run: python index.py
