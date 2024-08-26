@@ -11,11 +11,7 @@ then
 fi
 
 
-if [ "$( basename $PWD )" != "jpgram-cdn" ];
-then
-  printf "${RED}ERROR${NC}: run this script in root directory of jpgram-cdn repo.\n" >&2
-  exit 1
-fi
+cd "$(dirname "$0")"
 
 source secrets.env 2> /dev/null 1>&2
 
