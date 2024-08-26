@@ -12,16 +12,17 @@ jobs:
         run: |
           wget https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.4.0-linux-x86-64.tar.gz
           tar -xzf libwebp-1.4.0-linux-x86-64.tar.gz
+          sudo cp libwebp-1.4.0-linux-x86-64/bin/* /usr/local/bin/
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: convert
-        run: find . -type f -name "*.jpg" -exec sh -c './libwebp-1.4.0-linux-x86-64/cwebp -q 80 "$1" -o "${1%.jpg}.webp" && rm "$1"' _ {} \;
+        run: find . -type f -name "*.jpg" -exec sh -c 'cwebp -q 80 "$1" -o "${1%.jpg}.webp" && rm "$1"' _ {} \;
 
       - name: push changes
         run: |
           git config --global user.name 'Your Name'
           git config --global user.email 'your-username@users.noreply.github.com'
-          git commit -am "chore: jpg2webp - $(date)"
+          git commit -m "chore: jpg2webp - $(date)"
           git push
