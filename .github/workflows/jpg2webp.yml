@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+
+permissions:
+          contents: write
+
 jobs:
   jpg2webp:
     runs-on: ubuntu-latest
@@ -30,7 +34,7 @@ jobs:
 
       - name: push changes
         run: |
-          git config --global user.name 'codeblech-robot'
-          git config --global user.email '37410163+codeblech@users.noreply.github.com'
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '3github-actions[bot]@users.noreply.github.com'
           git commit -am "chore: jpg2webp - $(date)"
           git push
