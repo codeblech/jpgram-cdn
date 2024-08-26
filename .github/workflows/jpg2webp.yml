@@ -36,5 +36,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '3github-actions[bot]@users.noreply.github.com'
-          git commit -am "chore: jpg2webp - $(date)"
+          git add ./images/osdcjiit/*.webp
+          git add index.json
+          git commit -m "chore: jpg2webp - $(date)"
           git push
