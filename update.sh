@@ -24,6 +24,9 @@ then
   fi
 fi
 
+printf "Pulling remote changes from github...\n"
+git pull
+
 mkdir -p images && cd images
 
 printf "Caching images... (this will take a few minutes)\n(To check instaloader output enter 'tail -f images/instaloader.log' in a seperate terminal)\n"
