@@ -1,0 +1,9 @@
+Presenting "Introduction to PyGame", hosted by the Open Source Developers Community (OSDC). This event is your ultimate power-up to level up your Python game dev skills.
+
+We’ll guide you through the ins and outs of PyGame. By the end, you’ll have a game that’s not just playable but ready to showcase to friends (and foes). 
+
+🗓️ Date: Tuesday, November 19, 2024
+⏰ Time: 5pm onwards
+📍 Venue: CL2 Lab
+
+Bring your laptops (and your love for weirdly niche pixel-based games). Maybe unlock some IRL steam achievements in the process.

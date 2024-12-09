@@ -1,0 +1,14 @@
+Get ready to catch 'em all at "Who's That Pokemon?" the Open Source Development Community (OSDC) orientation event. 
+
+Whether you’re a seasoned coder or just starting your journey, this is your chance to level up your skills and connect with fellow trainers—we mean developers. 👾
+
+We’ll be diving into the essentials of Git and GitHub, your trusty PokéBalls for managing and sharing code.
+
+🗓️ Date : Tuesday - September 24, 2024
+⏰ Time : 5pm onwards
+📍 Venue: CL02
+
+Don't forget to bring your laptops!
+Prepare for trouble ...and make it double. 🕵️
+
+Kudos to @dismaylay and @arnavmaindola for the super awesome poster! 😎
