@@ -42,7 +42,10 @@ fi
 cd ..
 printf "Generating indices... "
 python3 ./index.py
-printf "done\n"
+printf "Index generated.\n"
+printf "Adding LLM title to the index...\n"
+python3 ./llm_title.py
+printf "Added LLM title\n"
 
 if [ $? -ne 0 ]
 then
