@@ -7,13 +7,19 @@ LOGIN=0
 
 if [ "$1" = "login" ];
 then
-  LOGIN = 1
+  LOGIN=1
 fi
 
 
 cd "$(dirname "$0")"
 
-source secrets.env 2> /dev/null 1>&2
+if [ -f secrets.env ]; then
+  source secrets.env
+else
+  printf "${RED}ERROR${NC}: secrets.env file not found.\n" >&2
+  read -p "Press any key to exit..."
+  exit 1
+fi
 
 if [ $LOGIN -eq 1 ];
 then
@@ -33,9 +39,9 @@ printf "Caching images... (this will take a few minutes)\n(To check instaloader 
 
 if [ $LOGIN -eq 1 ];
 then
-  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json --login $JPGRAM_IG_ID --password $JPGRAM_IG_PSWD 2> instaloader.log >&2
+  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json --post-metadata-txt="https://www.instagram.com/p/{shortcode}/|||{caption}" --login $JPGRAM_IG_ID --password $JPGRAM_IG_PSWD 2> instaloader.log >&2
 else
-  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json 2> instaloader.log >&2
+  python3 -m instaloader +../clubs.txt --latest-stamps latest-stamps.ini --no-videos --no-metadata-json --post-metadata-txt="https://www.instagram.com/p/{shortcode}/|||{caption}" 2> instaloader.log >&2
 fi
 
 # Generating indices
@@ -63,6 +69,5 @@ git add .
 git commit -m "chore: update image cache ($(date "+%Y-%m-%d--%H-%M-%S"))"
 git push
 
-
-
 printf "done.\n"
+read -p "Press any key to exit..."

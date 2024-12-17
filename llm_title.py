@@ -1,15 +1,22 @@
 import json
-import os
 import time
+import argparse
 from datetime import datetime
 from groq import Groq
-import argparse
+import os
+from dotenv import load_dotenv
+
+load_dotenv('secrets.env')
+
+# Check if GROQ_API_KEY is set
+if 'GROQ_API_KEY' not in os.environ:
+    raise ValueError("GROQ_API_KEY environment variable not set")
 
 # Define the dictionary with Instagram handles and corresponding club names
 club_dict = {
     "cice_jiit": "CICE",
     "crescendojiit": "Crescendo",
-    "gdscjiit": "GDSC JIIT",
+    "dscjiit": "DSC JIIT",
     "jaypee.photo.enthusiasts.guild": "Jaypee Photo Enthusiasts Guild",
     "jhankaarjiit": "Jhankaar",
     "jiit.impressions": "Impressions",
@@ -25,39 +32,95 @@ club_dict = {
     "ucrjiit": "UCR JIIT",
 }
 
-def get_title_from_groqcloud(caption, club_name):
-    API = "generate from console.groq.com"
-    client = Groq(api_key=API)
-    
-    system_message = f'An instagram post has been made by the "{club_name}". The caption will be provided by the user. You will make a suitable title for the post highlighting what it is about. (Example: Fest 2k24 Intro, New CS Session, Farewell 2023, Rakshabandhan Wishes, Important Announcement, Winners Announced, etc.). It should focus on the primary objective of the post, and should make it clear what the post is about. No need to mention the club name. Give single output in JSON within header "title" for every post. It shouldn\'t be longer than 5 words (ideally 3/4). No need to mention {club_name}.'
-    
-    while True:
-        try:
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_message,
-                    },
-                    {
-                        "role": "user",
-                        "content": caption,
-                    }
-                ],
-                response_format={"type": "json_object"},
-                model="llama-3.3-70b-versatile",
-            )
-            response = chat_completion.choices[0].message.content
-            title_json = json.loads(response)
-            return title_json.get("title")
-        except Exception as e:
-            if hasattr(e, 'response') and e.response.status_code == 429:
-                print("429 Too Many Requests: Retrying after 10 seconds...")
-                time.sleep(10)
-            else:
-                raise
+def estimate_tokens(text):
+    # Simple estimation: 1 token per 4 characters
+    return len(text)
+
+def get_titles_from_groqcloud(captions, club_name, client):
+    system_message = f'''A series of Instagram posts have been made by "{club_name}". For each caption provided by the user, generate a suitable title that highlights what the post is about. Each title should focus on the primary objective of the post and make it clear what the post is about. Titles should not include the club name, and should not be longer than 5 words (ideally 3/4). Each caption should have it's corresponding caption, regardless of it's duplicate or same.
+
+Provide the titles in a JSON object with key "titles", where each title corresponds to the caption in the same position in the captions list. For example:
+{{"titles": ["Title for post 1", "Title for post 2", ...]}}
+'''
+    tokens_system = estimate_tokens(system_message)
+    error_count = 0
+    # Split captions into batches of up to 20 posts
+    max_captions_per_api_call = 15
+    batch = []
+    all_titles = []
+    for i in range(len(captions)):
+        caption=captions[i]
+        batch.append(caption)
+        
+        # Get remaining tokens
+        rate_limit = client.rate_limit if hasattr(client, 'rate_limit') else {}
+        remaining_tokens = int(rate_limit.get('x-ratelimit-remaining-tokens', 14000))
+
+        if (len(batch) > max_captions_per_api_call) or (tokens_system + estimate_tokens(' '.join(batch)) + 500) > remaining_tokens or i==len(captions)-1:
+            if(i!=len(captions)-1):
+                batch.pop()
+                i-=1
+            while True:
+                try:
+                    chat_completion = client.chat.completions.create(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": system_message,
+                            },
+                            {
+                                "role": "user",
+                                "content": json.dumps({"captions": batch}),
+                            }
+                        ],
+                        response_format={"type": "json_object"},
+                        model="llama-3.3-70b-versatile",
+                    )
+                    response = chat_completion.choices[0].message.content
+
+                    titles_json = json.loads(response)
+                    if 'titles' in titles_json and len(titles_json['titles']) == len(batch):
+                        all_titles.extend(titles_json['titles'])
+                        print("Titles generated:", len(titles_json['titles']), "Total:", len(all_titles))
+                        error_count = 0
+                        batch=[]
+                        break
+                    else:
+                        error_count += 1
+                        print("Invalid JSON format or incorrect number of titles. Retrying...", len(titles_json['titles']), len(batch))
+                        if error_count > 1:
+                            removed_elements = len(batch) // 2
+                            batch = batch[:len(batch) - removed_elements]
+                            i -= removed_elements
+                            error_count = 0
+                except Exception as e:
+                    if hasattr(e, 'response') and e.response.status_code == 429:
+                        retry_after = e.response.headers.get('retry-after')
+                        if retry_after is not None:
+                            retry_after = int(float(retry_after))
+                        else:
+                            retry_after = 10  # Default retry after 10 seconds if header is missing
+                        print(f"429 Too Many Requests: Retrying after {retry_after} seconds...")
+                        time.sleep(retry_after)
+                    else:
+                        raise
+    return all_titles    
+
+def parse_time_to_seconds(time_str):
+    # Converts time format like '2m59.56s' to total seconds
+    if 'm' in time_str:
+        mins, secs = time_str.split('m')
+        secs = secs.replace('s', '')
+        total_seconds = int(mins) * 60 + float(secs)
+    else:
+        total_seconds = float(time_str.replace('s', ''))
+    return total_seconds
 
 def update_posts_with_titles(date, club, overwrite):
+    API = os.getenv("GROQ_API_KEY")
+    if not API:
+        raise ValueError("GROQ_API_KEY environment variable not set")
+    client = Groq(api_key=API)
     if date == "*":
         all_dates = True
     else:
@@ -69,23 +132,24 @@ def update_posts_with_titles(date, club, overwrite):
         data = json.load(f)
         for handle, posts in data.items():
             if club == "*" or handle == club:
-                count = 0
-                print("working on club: ", handle)
-                updated_posts = []
-                for post in posts:
+                print("Working on club:", handle)
+                captions_to_update = []
+                indices_to_update = []
+                for idx, post in enumerate(posts):
                     post_date = datetime.strptime(post['datetime'], "%B %d, %Y")
-                    if (all_dates or post_date >= target_date) and (overwrite or "title" not in post.keys()):
-                        caption = post['caption']
-                        club_name = club_dict.get(handle, "Unknown Club")
-                        title = get_title_from_groqcloud(caption, club_name)
-                        count += 1
-                        post['title'] = title
-                        print("posts updated: ", count)
-                    updated_posts.append(post)
-                print("Total posts updated of ", handle, ": ", count)
-                updated_data[handle] = updated_posts
+                    if (all_dates or post_date >= target_date) and (overwrite or "title" not in post):
+                        captions_to_update.append(post['caption'])
+                        indices_to_update.append(idx)
+                if captions_to_update:
+                    club_name = club_dict.get(handle, "Unknown Club")
+                    titles = get_titles_from_groqcloud(captions_to_update, club_name, client)
+                    for idx, title in zip(indices_to_update, titles):
+                        posts[idx]['title'] = title
+                        print(f"Post {idx} updated with title: {title}")
+                print(f"Total posts updated for {handle}: {len(indices_to_update)}")
+                updated_data[handle] = posts
 
-                # Write the updated data to index.json after processing each club
+                # Save the updated data back to index.json after processing each club
                 with open('index.json', 'w') as f:
                     json.dump(updated_data, f, indent=4)
             else:
