@@ -1,4 +1,4 @@
-Say goodbye to bottlenecks and boost performance with technology enabling GPUs to access PCIe-attached memory – where speed meets efficiency! 🚀💾 
+https://www.instagram.com/p/C9-fRryBLYx/|||Say goodbye to bottlenecks and boost performance with technology enabling GPUs to access PCIe-attached memory – where speed meets efficiency! 🚀💾 
 
 New tech from Panmnesia and KAIST allows GPUs to use PCIe-attached memory via a Compute Express Link (CXL) interface. This game-changing technology offers unparalleled speed, efficiency, and scalability, allowing GPUs to access system memory directly with double-digit nanosecond latency.
 

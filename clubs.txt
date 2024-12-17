@@ -1,6 +1,6 @@
 cice_jiit
 crescendojiit
-gdscjiit
+dscjiit
 jaypee.photo.enthusiasts.guild
 jhankaarjiit
 jiit.impressions
