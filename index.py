@@ -5,7 +5,6 @@ from datetime import datetime
 CDN_RAW_PREFIX = "https://raw.githubusercontent.com/codeblech/jpgram-cdn/main/"
 ROOT = "images"
 
-
 index = {}
 
 for club in os.listdir(ROOT):
@@ -14,6 +13,9 @@ for club in os.listdir(ROOT):
         continue
 
     index[club] = []
+    previous_caption = None
+    current_post = None
+
     for filename in sorted(os.listdir(club_path), reverse=True):
         if filename.endswith((".webp", ".jpg", ".jpeg", ".png")):
             image_path = os.path.join(ROOT, club, filename)
@@ -35,22 +37,26 @@ for club in os.listdir(ROOT):
             caption_path = os.path.join(ROOT, club, caption_filename)
 
             caption = "No caption available"
+            url = "No URL available"
 
             if os.path.exists(caption_path):
-                with open(caption_path) as f:
-                    caption = f.read().strip()
+                with open(caption_path, encoding='utf-8') as f:
+                    lines = f.read().replace('|||', '\n').splitlines()
+                    if lines:
+                        url = lines[0].strip()
+                        caption = "".join(lines[1:]).strip()
 
+            if caption == previous_caption and current_post:
+                current_post["images"].append(CDN_RAW_PREFIX + image_path)
+            else:
+                current_post = {
+                    "images": [CDN_RAW_PREFIX + image_path],
+                    "caption": caption,
+                    "url": url,
+                    "datetime": formatted_datetime,
+                }
+                index[club].append(current_post)
+                previous_caption = caption
 
-            index[club].append(
-                    {
-                        "image": CDN_RAW_PREFIX+image_path,
-                        "caption": caption,
-                        "datetime": formatted_datetime,
-                    }
-            )
-
-
-
-
-with open("index.json", "w+") as f:
-    json.dump(index, f)
+with open("index.json", "w+", encoding='utf-8') as f:
+    json.dump(index, f, indent=4)
