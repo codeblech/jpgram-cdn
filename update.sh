@@ -65,7 +65,7 @@ then
 fi
 
 printf "Commiting changes... "
-git add .
+git add images/ index.json
 git commit -m "chore: update image cache ($(date "+%Y-%m-%d--%H-%M-%S"))"
 git push
 
