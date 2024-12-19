@@ -34,7 +34,7 @@ club_dict = {
 
 def estimate_tokens(text):
     # Simple estimation: 1 token per 4 characters
-    return len(text)
+    return int(len(text)/4)
 
 def get_titles_from_groqcloud(captions, club_name, client):
     system_message = f'''A series of Instagram posts have been made by "{club_name}". For each caption provided by the user, generate a suitable title that highlights what the post is about. Each title should focus on the primary objective of the post and make it clear what the post is about. Titles should not include the club name, and should not be longer than 5 words (ideally 3/4). Each caption should have it's corresponding caption, regardless of it's duplicate or same.
@@ -45,28 +45,33 @@ Provide the titles in a JSON object with key "titles", where each title correspo
     tokens_system = estimate_tokens(system_message)
     error_count = 0
     # Split captions into batches of up to 20 posts
-    max_captions_per_api_call = 15
+    max_captions_per_api_call = 20
     batch = []
     all_titles = []
-    for i in range(len(captions)):
+    i=-1
+    while True:
+        i+=1
+        if(i==len(captions)):
+            break
         caption=captions[i]
         batch.append(caption)
         
         # Get remaining tokens
         rate_limit = client.rate_limit if hasattr(client, 'rate_limit') else {}
-        remaining_tokens = int(rate_limit.get('x-ratelimit-remaining-tokens', 14000))
+        remaining_tokens = int(rate_limit.get('x-ratelimit-remaining-tokens', 6000)) #tokens per minute
 
         if (len(batch) > max_captions_per_api_call) or (tokens_system + estimate_tokens(' '.join(batch)) + 500) > remaining_tokens or i==len(captions)-1:
-            if(i!=len(captions)-1):
+            if((len(batch) > max_captions_per_api_call) or (tokens_system + estimate_tokens(' '.join(batch)) + 500) > remaining_tokens):
                 batch.pop()
                 i-=1
+
             while True:
                 try:
                     chat_completion = client.chat.completions.create(
                         messages=[
                             {
                                 "role": "system",
-                                "content": system_message,
+                                "content": system_message+". There should be exactly "+str(len(batch))+" titles in the response.",
                             },
                             {
                                 "role": "user",
@@ -103,6 +108,8 @@ Provide the titles in a JSON object with key "titles", where each title correspo
                         print(f"429 Too Many Requests: Retrying after {retry_after} seconds...")
                         time.sleep(retry_after)
                     else:
+                        
+                        print(e)
                         raise
     return all_titles    
 
@@ -121,39 +128,42 @@ def update_posts_with_titles(date, club, overwrite):
     if not API:
         raise ValueError("GROQ_API_KEY environment variable not set")
     client = Groq(api_key=API)
+    
+    # Load existing data
+    with open('index.json', 'r') as f:
+        data = json.load(f)
+    
     if date == "*":
         all_dates = True
     else:
         all_dates = False
         target_date = datetime.strptime(date, "%d/%m/%y")
-    updated_data = {}
 
-    with open('index.json', 'r') as f:
-        data = json.load(f)
-        for handle, posts in data.items():
-            if club == "*" or handle == club:
-                print("Working on club:", handle)
-                captions_to_update = []
-                indices_to_update = []
-                for idx, post in enumerate(posts):
-                    post_date = datetime.strptime(post['datetime'], "%B %d, %Y")
-                    if (all_dates or post_date >= target_date) and (overwrite or "title" not in post):
+    # Process clubs while maintaining all existing data
+    for handle, posts in data.items():
+        if club == "*" or handle == club:
+            print("Working on club:", handle)
+            captions_to_update = []
+            indices_to_update = []
+            
+            for idx, post in enumerate(posts):
+                post_date = datetime.strptime(post['datetime'], "%B %d, %Y")
+                if (all_dates or post_date >= target_date) and (overwrite or "title" not in post):
+                    if post['caption'].strip() not in ["No caption available", ""]:
                         captions_to_update.append(post['caption'])
                         indices_to_update.append(idx)
-                if captions_to_update:
-                    club_name = club_dict.get(handle, "Unknown Club")
-                    titles = get_titles_from_groqcloud(captions_to_update, club_name, client)
-                    for idx, title in zip(indices_to_update, titles):
-                        posts[idx]['title'] = title
-                        print(f"Post {idx} updated with title: {title}")
+            
+            if captions_to_update:
+                club_name = club_dict.get(handle, "Unknown Club")
+                titles = get_titles_from_groqcloud(captions_to_update, club_name, client)
+                for idx, title in zip(indices_to_update, titles):
+                    posts[idx]['title'] = title
+                    print(f"Post {idx} updated with title: {title}")
                 print(f"Total posts updated for {handle}: {len(indices_to_update)}")
-                updated_data[handle] = posts
-
-                # Save the updated data back to index.json after processing each club
+                
+                # Save after each club update
                 with open('index.json', 'w') as f:
-                    json.dump(updated_data, f, indent=4)
-            else:
-                updated_data[handle] = posts
+                    json.dump(data, f, indent=4)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Update Instagram post titles.")
