@@ -50,7 +50,8 @@ printf "Generating indices... "
 python3 ./index.py
 printf "Index generated.\n"
 printf "Adding LLM title to the index...\n"
-python3 ./llm_title.py
+python3 ./llm_title.py "*" "*" "genai"
+
 printf "Added LLM title\n"
 
 if [ $? -ne 0 ]
