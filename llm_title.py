@@ -2,7 +2,12 @@ import json
 import time
 import argparse
 from datetime import datetime
+
 from groq import Groq
+import google.generativeai as genai
+from google.ai.generativelanguage_v1beta.types import content
+from google.api_core import exceptions
+
 import os
 from dotenv import load_dotenv
 
@@ -111,7 +116,50 @@ Provide the titles in a JSON object with key "titles", where each title correspo
                         
                         print(e)
                         raise
-    return all_titles    
+    return all_titles   
+
+def get_titles_from_genai(captions, club_name, generation_config):
+    system_message = f'''A series of Instagram posts have been made by "{club_name}". For each caption provided by the user, you are supposed to write a suitable title that highlights what the post is about. Each title should focus on the primary objective of the post and make it clear what the post is about. Titles should not include the club name, and should not be longer than 5 words (ideally 3/4). Each caption should have it's corresponding caption, regardless of it's duplicate or same.
+
+Provide the titles in a JSON object with key "titles", where each title corresponds to the caption in the same position in the captions list. For example:
+{{"titles": ["Title for post 1", "Title for post 2", ...]}}. Each caption is seperated by the identifier '|||=|||'. Ensure that the titles are in the same sequence as the captions.
+'''
+    model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash-exp",
+            generation_config=generation_config,
+            system_instruction=system_message,
+        )
+
+    all_titles = []
+    batch_size = 20
+    max_retries = 5
+    init_retry_delay = 10
+    for i in range(0, len(captions), batch_size):
+        chat_session = model.start_chat(
+            history=[]
+        )
+        batch = captions[i:i+batch_size]
+        batch_prompt = '\n|||=|||\n'.join(batch)
+        retries=0
+        retry_delay = init_retry_delay
+        while retries <= max_retries:
+            try:
+                batch_response = chat_session.send_message(batch_prompt)
+                batch_titles = json.loads(batch_response.text)['titles']
+                all_titles.extend(batch_titles)
+                print("Titles generated:", len(batch_titles), "Total:", len(all_titles))
+                break
+            except exceptions.TooManyRequests as e:
+                retries += 1
+                print(f"Rate limit hit. Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})")
+                time.sleep(retry_delay)
+                retry_delay *= 2 # Exponential backoff
+            except Exception as e: # catch other exceptions
+                print(f"An unexpected error has occured. {e}")
+                raise e
+        
+        
+    return all_titles
 
 def parse_time_to_seconds(time_str):
     # Converts time format like '2m59.56s' to total seconds
@@ -123,17 +171,43 @@ def parse_time_to_seconds(time_str):
         total_seconds = float(time_str.replace('s', ''))
     return total_seconds
 
-def update_posts_with_titles(date, club, overwrite):
+def update_posts_with_titles(date, club, overwrite, api_source):
     API = os.getenv("GROQ_API_KEY")
     if not API:
         raise ValueError("GROQ_API_KEY environment variable not set")
-    client = Groq(api_key=API)
+    
+    if api_source == "groqcloud":
+        client = Groq(api_key=API)
+    elif api_source == "genai":
+        genai.configure(api_key=os.environ['GENAI_API_KEY'])
+        # Create the model
+        generation_config = {
+        "temperature": 1,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+        "response_schema": content.Schema(
+            type = content.Type.OBJECT,
+            enum = [],
+            required = ["titles"],
+            properties = {
+            "titles": content.Schema(
+                type = content.Type.ARRAY,
+                items = content.Schema(
+                type = content.Type.STRING,
+                ),
+            ),
+            },
+        ),
+        "response_mime_type": "application/json",
+        }
+        
     
     # Load existing data
     with open('index.json', 'r') as f:
         data = json.load(f)
     
-    if date == "*":
+    if date in "*":
         all_dates = True
     else:
         all_dates = False
@@ -149,16 +223,18 @@ def update_posts_with_titles(date, club, overwrite):
             for idx, post in enumerate(posts):
                 post_date = datetime.strptime(post['datetime'], "%B %d, %Y")
                 if (all_dates or post_date >= target_date) and (overwrite or "title" not in post):
-                    if post['caption'].strip() not in ["No caption available", ""]:
+                    if post['caption'].strip().lower() not in ["no caption available", "", "no caption"]:
                         captions_to_update.append(post['caption'])
                         indices_to_update.append(idx)
             
             if captions_to_update:
                 club_name = club_dict.get(handle, "Unknown Club")
-                titles = get_titles_from_groqcloud(captions_to_update, club_name, client)
+                if api_source == "groqcloud":
+                    titles = get_titles_from_groqcloud(captions_to_update, club_name, client)
+                elif api_source == "genai":
+                    titles = get_titles_from_genai(captions_to_update, club_name, generation_config)
                 for idx, title in zip(indices_to_update, titles):
                     posts[idx]['title'] = title
-                    print(f"Post {idx} updated with title: {title}")
                 print(f"Total posts updated for {handle}: {len(indices_to_update)}")
                 
                 # Save after each club update
@@ -169,7 +245,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Update Instagram post titles.")
     parser.add_argument("date", nargs="?", default="*", help="Date in format dd/mm/yy. Use * for all dates.")
     parser.add_argument("club", nargs="?", default="*", help="Instagram handle of the club. Use * for all clubs.")
+    parser.add_argument("api_source", default="groqcloud", help="Api source. Supported values: groqcloud, genai")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing titles.")
     args = parser.parse_args()
 
-    update_posts_with_titles(args.date, args.club, args.overwrite)
+    update_posts_with_titles(args.date, args.club, args.overwrite, args.api_source)
